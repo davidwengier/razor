@@ -3,11 +3,10 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.CodeAnalysis.ExternalAccess.Razor;
 
 namespace Microsoft.CodeAnalysis.Razor.Remote;
 
 internal interface IRemoteClientProvider
 {
-    Task<RazorRemoteHostClient?> TryGetClientAsync(CancellationToken cancellationToken);
+    Task<RazorRemoteClientWrapper?> TryGetClientAsync(CancellationToken cancellationToken);
 }

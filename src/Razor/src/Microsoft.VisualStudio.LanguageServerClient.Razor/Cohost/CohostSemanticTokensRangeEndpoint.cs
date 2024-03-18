@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Razor;
 using Microsoft.AspNetCore.Razor.LanguageServer;
 using Microsoft.AspNetCore.Razor.LanguageServer.Common;
 using Microsoft.AspNetCore.Razor.Telemetry;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.ExternalAccess.Razor.Cohost;
 using Microsoft.CodeAnalysis.Razor.Logging;
 using Microsoft.CodeAnalysis.Razor.SemanticTokens;
@@ -47,12 +48,19 @@ internal sealed class CohostSemanticTokensRangeEndpoint(
         serverCapabilities.EnableSemanticTokens(_semanticTokensLegendService);
     }
 
-    protected override async Task<SemanticTokens?> HandleRequestAsync(SemanticTokensRangeParams request, RazorCohostRequestContext context, CancellationToken cancellationToken)
+    protected override Task<SemanticTokens?> HandleRequestAsync(SemanticTokensRangeParams request, RazorCohostRequestContext context, CancellationToken cancellationToken)
+    {
+        var document = context.TextDocument.AssumeNotNull();
+
+        return HandleRequestAsync(request, document, cancellationToken);
+    }
+
+    private async Task<SemanticTokens?> HandleRequestAsync(SemanticTokensRangeParams request, TextDocument document, CancellationToken cancellationToken)
     {
         var correlationId = Guid.NewGuid();
         using var _ = _telemetryReporter.TrackLspRequest(Methods.TextDocumentSemanticTokensRangeName, RazorLSPConstants.CohostLanguageServerName, correlationId);
 
-        var data = await _semanticTokensInfoService.GetSemanticTokensDataAsync(context.TextDocument.AssumeNotNull(), request.Range.ToLinePositionSpan(), correlationId, cancellationToken);
+        var data = await _semanticTokensInfoService.GetSemanticTokensDataAsync(document, request.Range.ToLinePositionSpan(), correlationId, cancellationToken);
 
         if (data is null)
         {
@@ -63,5 +71,23 @@ internal sealed class CohostSemanticTokensRangeEndpoint(
         {
             Data = data
         };
+    }
+
+    internal TestAccessor GetTestAccessor()
+    {
+        return new TestAccessor(this);
+    }
+
+    internal readonly struct TestAccessor
+    {
+        private readonly CohostSemanticTokensRangeEndpoint _instance;
+
+        internal TestAccessor(CohostSemanticTokensRangeEndpoint instance)
+        {
+            _instance = instance;
+        }
+
+        public Task<SemanticTokens?> HandleRequestAsync(SemanticTokensRangeParams request, TextDocument document, CancellationToken cancellationToken)
+            => _instance.HandleRequestAsync(request, document, cancellationToken);
     }
 }

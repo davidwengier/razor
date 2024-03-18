@@ -28,7 +28,7 @@ internal sealed class RemoteClientProvider(
     private bool _isInitialized;
     private bool _isLSPInitialized;
 
-    public async Task<RazorRemoteHostClient?> TryGetClientAsync(CancellationToken cancellationToken)
+    public async Task<RazorRemoteClientWrapper?> TryGetClientAsync(CancellationToken cancellationToken)
     {
         var workspace = _workspaceProvider.GetWorkspace();
 
@@ -43,12 +43,14 @@ internal sealed class RemoteClientProvider(
             return null;
         }
 
-        await InitializeRemoteClientAsync(remoteClient, cancellationToken).ConfigureAwait(false);
+        var client = new RazorRemoteClientWrapper(remoteClient);
 
-        return remoteClient;
+        await InitializeRemoteClientAsync(client, cancellationToken).ConfigureAwait(false);
+
+        return client;
     }
 
-    private async Task InitializeRemoteClientAsync(RazorRemoteHostClient remoteClient, CancellationToken cancellationToken)
+    private async Task InitializeRemoteClientAsync(RazorRemoteClientWrapper remoteClient, CancellationToken cancellationToken)
     {
         if (!_isInitialized)
         {
