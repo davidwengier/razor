@@ -37,7 +37,7 @@ internal sealed class CommandEndpoint(
 
     public Task<object?> HandleRequestAsync(ExecuteCommandParams request, RazorRequestContext context, CancellationToken cancellationToken)
     {
-        _clientConnection.SendNotificationAsync("razor/initiateRename", cancellationToken).Forget();
+        _clientConnection.SendNotificationAsync("razor/initiateRename", request.Arguments, cancellationToken).Forget();
 
         return SpecializedTasks.Null<object>();
     }

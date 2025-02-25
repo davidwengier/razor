@@ -117,7 +117,7 @@ internal class CodeActionResolveService(
 
         if (resolver is ExtractToComponentCodeActionResolver && edit is not null)
         {
-            codeAction.Command = new Command() { CommandIdentifier = "razor/initiateRename" };
+            codeAction.Command = new Command() { CommandIdentifier = "razor/initiateRename", Arguments = [edit] };
         }
 
         return codeAction;

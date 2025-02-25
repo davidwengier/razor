@@ -44,12 +44,14 @@ internal partial class RazorCustomMessageTarget
     }
 
     [JsonRpcMethod("razor/initiateRename", UseSingleObjectParameterDeserialization = true)]
-    public async Task InitiateRenameAsync(CancellationToken cancellationToken)
+    public async Task InitiateRenameAsync(object[] data, CancellationToken cancellationToken)
     {
         var commandGuid = typeof(VSStd2KCmdID).GUID;
         var commandId = VSStd2KCmdID.RENAME;
 
         await _joinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        var edit = data[0] as WorkspaceEdit;
 
         var serviceProvider = (IAsyncServiceProvider?)await AsyncServiceProvider.GlobalProvider.GetServiceAsync(typeof(SAsyncServiceProvider)).WithCancellation(cancellationToken);
         var dispatcher = (IOleCommandTarget?)await serviceProvider!.GetServiceAsync(typeof(SUIHostCommandDispatcher)).WithCancellation(cancellationToken);
