@@ -1686,6 +1686,78 @@ public class DocumentFormattingTest(FormattingTestContext context, HtmlFormattin
     }
 
     [FormattingTestFact]
+    public async Task FormatsMultilineImplicitExpressions()
+    {
+        await RunFormattingTestAsync(
+            input: """
+                    @page "/test"
+
+                    @(DateTime.Now
+                        .ToString())
+
+                    @if (true)
+                    {
+                        @(DateTime.Now
+                            .ToString())
+                    }
+
+                    <div>
+                        @(DateTime.Now
+                            .ToString())
+                    </div>
+
+                    <div>
+                        @if (true)
+                        {
+                            @(DateTime.Now
+                                .ToString())
+                        }
+                    </div>
+
+                    @if (true)
+                    {
+                        <div>
+                            @(DateTime.Now
+                                .ToString())
+                        </div>
+                    }
+                    """,
+            expected: """
+                    @page "/test"
+
+                    @(DateTime.Now
+                        .ToString())
+                    
+                    @if (true)
+                    {
+                        @(DateTime.Now
+                            .ToString())
+                    }
+
+                    <div>
+                        @(DateTime.Now
+                            .ToString())
+                    </div>
+                    
+                    <div>
+                        @if (true)
+                        {
+                            @(DateTime.Now
+                                .ToString())
+                        }
+                    </div>
+                    
+                    @if (true)
+                    {
+                        <div>
+                            @(DateTime.Now
+                                .ToString())
+                        </div>
+                    }
+                    """);
+    }
+
+    [FormattingTestFact]
     public async Task FormatsMixedContentWithMultilineExpressions()
     {
         await RunFormattingTestAsync(

@@ -633,6 +633,10 @@ internal partial class CSharpFormattingPass
                         checkForNewLines: false);
                 }
 
+                // We make sure to include the preceeding indentation, so that if the explicit expression is nested, Roslyn will do
+                // what we expect
+                var whitespaceSpan = TextSpan.FromBounds(_currentLine.Start, _currentFirstNonWhitespacePosition);
+                _builder.Append(_sourceText.GetSubTextString(whitespaceSpan));
                 _builder.AppendLine(_sourceText.GetSubTextString(TextSpan.FromBounds(_currentToken.Position + 1, _currentLine.End)));
                 return CreateLineInfo(
                     processFormatting: true,
