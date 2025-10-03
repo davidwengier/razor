@@ -6711,4 +6711,793 @@ public class DocumentFormattingTest(FormattingTestContext context, HtmlFormattin
                     </span>
                 }
                 """);
+
+    [FormattingTestFact]
+    [WorkItem("https://github.com/dotnet/vscode-csharp/issues/8649")]
+    public Task CustomReportedIssue()
+        => RunFormattingTestAsync(
+            input: """
+                        @using Improvements.Blazor.Components.Pages.Dialogs
+
+            @inject IDialogService DialogService
+
+                <MudItem xs="3" sm="3">
+                    <MudPaper Elevation="4" Class="pa-4">
+                        <MudText Typo="Typo.h6" Color="Color.Primary" Class="mt-4">@_l["workflow"]</MudText>
+                        <MudDivider Class="mt-2 mb-2" />
+                        <MudExpansionPanels>
+
+                            @* NADREJENI potrjevalec *@
+                            @if (Improvement.StatusId == 1) //če sem na 1. koraku
+                            {
+                                @if (Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Superior).Count() > 0)
+                                {
+                                    <MudExpansionPanel Expanded="true">
+                                        <TitleContent>
+                                            <div class="d-flex">
+                                                <MudIcon Icon="@Icons.Material.Filled.Pending" Color="Color.Warning" class="mr-3"></MudIcon>
+                                                <MudText> @_l["superiorLabel"] @GetDisplayName("", Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Superior).Select(x => x.ParticipantId).FirstOrDefault() ?? "")</MudText>
+                                            </div>
+                                        </TitleContent>
+                                        <ChildContent>
+                                            <MudGrid>
+                                                <MudItem md="12">
+                                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                               OnClick="@(() => OpenWorkflowTaskDialog(1))">
+                                                        @_l["processRequest"]
+                                                    </MudButton>
+                                                </MudItem>
+
+                                            </MudGrid>
+                                        </ChildContent>
+                                    </MudExpansionPanel>
+                                }
+                            }
+                            else //če je nadrejeni že obdelal korak
+                            {
+
+                                <MudExpansionPanel Expanded="false">
+                                    <TitleContent>
+                                        <div class="d-flex">
+                                            @if (Improvement.StatusId == 21)
+                                            { //če jenadrejeni zavrnil
+                                              <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" class="mr-3"></MudIcon>
+                                            }
+                                            else
+                                            { //če je nadrejeni potrdil
+                                              <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" class="mr-3"></MudIcon>
+                                            }
+                                            <MudText> @GetDisplayName(_l["superiorLabel"], Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Superior).Select(x => x.ParticipantId).FirstOrDefault() ?? "")</MudText>
+                                        </div>
+                                    </TitleContent>
+                                    <ChildContent>
+                                        <MudGrid>
+                                            <MudItem md="12">
+                                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => OpenWorkflowTaskDialog(1, true))">
+                                                    @_l["viewDetails"]
+                                                </MudButton>
+
+                                            </MudItem>
+                                        </MudGrid>
+                                    </ChildContent>
+                                </MudExpansionPanel>
+                            }
+
+                            @* PROCESS OWNER potrjevalec *@
+                            @if (Improvement.StatusId == 2 && Improvement.ProcessOwnerReviewNeeded)  //če sem v koraku 2 in je nadrejeni določen
+                            {
+                                <MudExpansionPanel Expanded="true">
+                                    <TitleContent>
+                                        <div class="d-flex">
+                                            <MudIcon Icon="@Icons.Material.Filled.Pending" Color="Color.Warning" class="mr-3"></MudIcon>
+                                            <MudText>@_l["processOwnerLabel"] @GetDisplayName("", Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.ProcessOwner).Select(x => x.ParticipantId).FirstOrDefault() ?? "")</MudText>
+                                        </div>
+                                    </TitleContent>
+                                    <ChildContent>
+                                        <MudGrid>
+                                            <MudItem md="12">
+                                                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                           OnClick="@(() => OpenWorkflowTaskDialog(2))">
+                                                    @_l["processRequest"]
+                                                </MudButton>
+                                            </MudItem>
+                                        </MudGrid>
+                                    </ChildContent>
+                                </MudExpansionPanel>
+                            }
+                            else if (Improvement.StatusId > 2 && Improvement.StatusId != 21 && Improvement.ProcessOwnerReviewNeeded) //če je process owner že potrdil oz. se ga preskoči
+                            {
+                                <MudExpansionPanel Expanded="false">
+                                    <TitleContent>
+                                        <div class="d-flex">
+                                            @if (Improvement.StatusId == 31)
+                                            { //če je process owner zavrnil
+                                              <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" class="mr-3"></MudIcon>
+                                            }
+                                            else
+                                            { //če je process owner potrdil
+                                              <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" class="mr-3"></MudIcon>
+                                            }
+                                            <MudText> @GetDisplayName(_l["processOwnerLabel"], Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.ProcessOwner).Select(x => x.ParticipantId).FirstOrDefault() ?? "")</MudText>
+                                        </div>
+                                    </TitleContent>
+                                    <ChildContent>
+                                        <MudGrid>
+                                            <MudItem md="12">
+                                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => OpenWorkflowTaskDialog(2, true))">
+                                                    @_l["viewDetails"]
+                                                </MudButton>
+
+                                            </MudItem>
+                                        </MudGrid>
+                                    </ChildContent>
+                                </MudExpansionPanel>
+                            }
+
+                            @* IZVAJALEC potrjevalec *@
+                            @if ((Improvement.StatusId == 2 && !Improvement.ProcessOwnerReviewNeeded && Improvement.ImplementatorReviewNeeded) || (Improvement.StatusId == 3 && Improvement.ImplementatorReviewNeeded)) //če sem v 3. koraku in je potreben izvajalec
+                            {
+                                <MudExpansionPanel Expanded="true" Text="@GetDisplayName(_l["responsibleForImplementationLabel"], Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.ResponsibleForImplementation).Select(x => x.ParticipantId).FirstOrDefault() ?? "")"
+                                                   MaxHeight="500">
+                                    <TitleContent>
+                                        <div class="d-flex">
+                                            <MudIcon Icon="@Icons.Material.Filled.Pending" Color="Color.Warning" class="mr-3"></MudIcon>
+                                            <MudText>@_l["responsibleForImplementationLabel"] @GetDisplayName("", Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.ResponsibleForImplementation).Select(x => x.ParticipantId).FirstOrDefault() ?? "")</MudText>
+                                        </div>
+                                    </TitleContent>
+                                    <ChildContent>
+                                        <MudGrid>
+                                            <MudItem md="12">
+                                                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                           OnClick="@(() => OpenWorkflowTaskDialog(3))">
+                                                    @_l["processRequest"]
+                                                </MudButton>
+                                            </MudItem>
+                                        </MudGrid>
+                                    </ChildContent>
+                                </MudExpansionPanel>
+                            }
+                            else if (Improvement.StatusId > 3 && Improvement.StatusId != 21 && Improvement.StatusId != 31 && Improvement.ImplementatorReviewNeeded) //če je process owner že potrdil oz. se ga preskoči
+                            {
+                                <MudExpansionPanel Expanded="false">
+                                    <TitleContent>
+                                        <div class="d-flex">
+                                            @if (Improvement.StatusId == 41)
+                                            { //če jenadrejeni zavrnil
+                                              <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" class="mr-3"></MudIcon>
+                                            }
+                                            else
+                                            { //če je nadrejeni potrdil
+                                              <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" class="mr-3"></MudIcon>
+                                            }
+                                            <MudText>
+                                                @GetDisplayName(_l["responsibleForImplementationLabel"],
+                                                Improvement.Participants.Where(x => x.ParticipantRole ==
+                                                Participant.Role.ResponsibleForImplementation).Select(x =>
+                                                x.ParticipantId).FirstOrDefault() ?? "")
+                                        </MudText>
+                                    </div>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudGrid>
+                                        <MudItem md="12">
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                       OnClick="@(() => OpenWorkflowTaskDialog(3, true))">
+                                                @_l["viewDetails"]
+                                            </MudButton>
+
+                                        </MudItem>
+                                    </MudGrid>
+                                </ChildContent>
+
+                            </MudExpansionPanel>
+                                            }
+
+                            @*ADMINISTRATOR POTRJEVALEC 1*@
+                            @if ((Improvement.StatusId == 2 && !Improvement.ProcessOwnerReviewNeeded && !Improvement.ImplementatorReviewNeeded) || Improvement.StatusId == 4) //če sem v 4. koraku
+                            {
+                                <MudExpansionPanel Expanded="true" Text="@GetDisplayName(_l["administratorLabel"], Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Administrator).Select(x => x.ParticipantId).FirstOrDefault() ?? "")"
+                                                    MaxHeight="500">
+                                    <TitleContent>
+                                        <div class="d-flex">
+                                            <MudIcon Icon="@Icons.Material.Filled.Pending" Color="Color.Warning" class="mr-3"></MudIcon>
+                                            <MudText>@GetDisplayName(_l["administratorLabel"], Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Administrator).Select(x => x.ParticipantId).FirstOrDefault() ?? "")</MudText>
+                                        </div>
+                                    </TitleContent>
+                                    <ChildContent>
+                                        <MudGrid>
+                                            <MudItem md="12">
+                                                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                            OnClick="@(() => OpenWorkflowTaskDialog(4))">
+                                                    @_l["processRequest"]
+                                                </MudButton>
+                                            </MudItem>
+                                        </MudGrid>
+                                    </ChildContent>
+                                </MudExpansionPanel>
+                            }
+                            else if (Improvement.Logs.Any(l => l.StatusId == 5) && Improvement.StatusId != 21 && Improvement.StatusId != 31 && Improvement.StatusId != 41) //če je administrator že potrdil
+                            {
+                                <MudExpansionPanel Expanded="false">
+                                    <TitleContent>
+                                        <div class="d-flex">
+                                            @if (Improvement.StatusId == 51)
+                                            { //če je admin zavrnil
+                                              <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" class="mr-3"></MudIcon>
+                                            }
+                                            else
+                                            { //če je admin potrdil
+                                              <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" class="mr-3"></MudIcon>
+                                            }
+                                            <MudText>
+                                                @GetDisplayName(_l["administratorLabel"],
+                                                Improvement.Participants.Where(x => x.ParticipantRole ==
+                                                Participant.Role.Administrator).Select(x =>
+                                                x.ParticipantId).FirstOrDefault() ?? "")
+                                        </MudText>
+                                    </div>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudGrid>
+                                        <MudItem md="12">
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                       OnClick="@(() => OpenWorkflowTaskDialog(4, true))">
+                                                @_l["viewDetails"]
+                                            </MudButton>
+
+                                        </MudItem>
+                                    </MudGrid>
+                                </ChildContent>
+
+                            </MudExpansionPanel>
+                                            }
+
+                            @* ADMINISTRATOR POTRJEVALEC - gospodarska korist *@
+                            @if (Improvement.StatusId == 5 && Improvement.EconomicBenefitExists)
+                            {
+                                <MudExpansionPanel Expanded="true" Text="@GetDisplayName("Administrator (izračun KG) : ", Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Administrator).Select(x => x.ParticipantId).FirstOrDefault() ?? "")"
+                                                   MaxHeight="500">
+                                    <TitleContent>
+                                        <div class="d-flex">
+                                            <MudIcon Icon="@Icons.Material.Filled.Pending" Color="Color.Warning" class="mr-3"></MudIcon>
+                                            <MudText>@GetDisplayName("Administrator (izračun KG): ", Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Administrator).Select(x => x.ParticipantId).FirstOrDefault() ?? "")</MudText>
+                                        </div>
+                                    </TitleContent>
+                                    <ChildContent>
+                                        <MudGrid>
+                                            <MudItem md="12">
+                                                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                           OnClick="@(() => OpenWorkflowTaskDialog(5))">
+                                                    @_l["calculateEconomicBenefit"]
+                                                </MudButton>
+                                            </MudItem>
+                                        </MudGrid>
+                                    </ChildContent>
+                                </MudExpansionPanel>
+                            }
+                            else if (Improvement.StatusId > 5 && Improvement.StatusId != 21 && Improvement.StatusId != 31 && Improvement.StatusId != 41 && Improvement.StatusId != 51 && Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Administrator).Count() > 0 && Improvement.EconomicBenefitExists) //če je administrator že potrdil oz. se ga preskoči
+                            {
+                                <MudExpansionPanel Expanded="false">
+                                    <TitleContent>
+                                        <div class="d-flex">
+                                            @if (Improvement.StatusId == 51)
+                                            { //če je admin zavrnil
+                                              <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" class="mr-3"></MudIcon>
+                                            }
+                                            else
+                                            { //če je admin potrdil
+                                              <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" class="mr-3"></MudIcon>
+                                            }
+                                            <MudText>
+                                                @GetDisplayName("Administrator (izračun KG): ",
+                                                Improvement.Participants.Where(x => x.ParticipantRole ==
+                                                Participant.Role.Administrator).Select(x =>
+                                                x.ParticipantId).FirstOrDefault() ?? "")
+                                        </MudText>
+                                    </div>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudGrid>
+                                        <MudItem md="12">
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                       OnClick="@(() => OpenWorkflowTaskDialog(5, true))">
+                                                @_l["viewDetails"]
+                                            </MudButton>
+
+                                        </MudItem>
+                                    </MudGrid>
+                                </ChildContent>
+                            </MudExpansionPanel>
+                                            }
+
+                        </MudExpansionPanels>
+                    </MudPaper>
+                </MudItem>
+
+
+            @code {
+                [Parameter]
+                public Improvement Improvement { get; set; } = null!;
+                    [Parameter]
+                public UserContext UserContext { get; set; } = null!;
+                    [Parameter]
+                public EventCallback OnDataChanged { get; set; }
+
+
+                private string GetDisplayName(string text, string hidriaId, bool isCompleted = false)
+                {
+                    var employee = _HidriaDataContext.Employees.Where(e => e.EmployeeId == hidriaId).FirstOrDefault();
+                    if (employee != null)
+                    {
+                        return $"{text} {employee.FirstName} {employee.LastName}";
+                    }
+                    return hidriaId; // Return the ID if no match is found
+                }
+                private async Task OpenWorkflowTaskDialog(int statusNr, bool isReadOnly = false)
+                {
+
+                    switch (statusNr)
+                    {
+                        case 1: // Superior
+                            var _dialogSuperior = await DialogService.ShowAsync<Dialog_Approval_Superior>(_l["superiorDialog"], new DialogParameters<Dialog_Approval_Superior> {
+                                { x => x.Improvement, Improvement },
+                                { x => x.IsReadOnly, isReadOnly }
+                            });
+                            var _resultSuperior = await _dialogSuperior.Result; //rezultat dialoga čakam zato, da avtomatsko osveži UI po potrditvi
+                                    // If the dialog was not canceled, notify parent to refresh data
+                            if (_resultSuperior != null && !_resultSuperior.Canceled)
+                            {
+                                await OnDataChanged.InvokeAsync();
+                            }
+
+                            break;
+                        case 2:
+                            var _dialogProcessOwner = await DialogService.ShowAsync<Dialog_Approval_ProcessOwner>(_l["processOwnerDialog"], new DialogParameters<Dialog_Approval_ProcessOwner> {
+                                { x => x.Improvement, Improvement },
+                                { x => x.IsReadOnly, isReadOnly }
+
+                            });
+                            var _resultProcessOwner = await _dialogProcessOwner.Result;
+                            if (_resultProcessOwner != null && !_resultProcessOwner.Canceled)
+                            {
+                                await OnDataChanged.InvokeAsync();
+                            }
+
+                            break;
+                        case 3:
+                            var _dialogImplementator = await DialogService.ShowAsync<Dialog_Approval_Implementator>(_l["implementatorDialog"], new DialogParameters<Dialog_Approval_Implementator> {
+                                { x => x.Improvement, Improvement },
+                                { x => x.IsReadOnly, isReadOnly }
+                            });
+                            var _resultImplementator = await _dialogImplementator.Result;
+                            if (_resultImplementator != null && !_resultImplementator.Canceled)
+                            {
+                                await OnDataChanged.InvokeAsync();
+                            }
+                            break;
+                        case 4:
+                            var _dialogAdministartor = await DialogService.ShowAsync<Dialog_Approval_Administrator>(_l["administratorDialog"], new DialogParameters<Dialog_Approval_Administrator> {
+                                { x => x.Improvement, Improvement },
+                                { x => x.IsReadOnly, isReadOnly }
+                            });
+                            var _resultAdministartor = await _dialogAdministartor.Result;
+                            if (_resultAdministartor != null && !_resultAdministartor.Canceled)
+                            {
+                                await OnDataChanged.InvokeAsync();
+                            }
+                            break;
+                        case 5:
+                            var _dialogAdministartorEconomicBenefitCalc = await DialogService.ShowAsync<Dialog_Approval_AdministratorEconocomicBenefitCalc>(_l["administratorEconomicDialog"], new DialogParameters<Dialog_Approval_AdministratorEconocomicBenefitCalc> {
+                                { x => x.Improvement, Improvement },
+                                { x => x.IsReadOnly, isReadOnly }
+                            });
+                            var _resultAdministartorEconomicBenefitCalcd = await _dialogAdministartorEconomicBenefitCalc.Result;
+                            if (_resultAdministartorEconomicBenefitCalcd != null && !_resultAdministartorEconomicBenefitCalcd.Canceled)
+                            {
+                                await OnDataChanged.InvokeAsync();
+                            }
+                            break;
+
+                        default:
+                            throw new ArgumentException("Invalid role for workflow task dialog.");
+                    }
+
+
+                }
+            }
+            """,
+            expected: """
+            @using Improvements.Blazor.Components.Pages.Dialogs
+
+            @inject IDialogService DialogService
+
+            <MudItem xs="3" sm="3">
+                <MudPaper Elevation="4" Class="pa-4">
+                    <MudText Typo="Typo.h6" Color="Color.Primary" Class="mt-4">@_l["workflow"]</MudText>
+                    <MudDivider Class="mt-2 mb-2" />
+                    <MudExpansionPanels>
+
+                        @* NADREJENI potrjevalec *@
+                        @if (Improvement.StatusId == 1) //če sem na 1. koraku
+                        {
+                            @if (Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Superior).Count() > 0)
+                            {
+                                <MudExpansionPanel Expanded="true">
+                                    <TitleContent>
+                                        <div class="d-flex">
+                                            <MudIcon Icon="@Icons.Material.Filled.Pending" Color="Color.Warning" class="mr-3"></MudIcon>
+                                            <MudText> @_l["superiorLabel"] @GetDisplayName("", Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Superior).Select(x => x.ParticipantId).FirstOrDefault() ?? "")</MudText>
+                                        </div>
+                                    </TitleContent>
+                                    <ChildContent>
+                                        <MudGrid>
+                                            <MudItem md="12">
+                                                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                           OnClick="@(() => OpenWorkflowTaskDialog(1))">
+                                                    @_l["processRequest"]
+                                                </MudButton>
+                                            </MudItem>
+
+                                        </MudGrid>
+                                    </ChildContent>
+                                </MudExpansionPanel>
+                            }
+                        }
+                        else //če je nadrejeni že obdelal korak
+                        {
+
+                            <MudExpansionPanel Expanded="false">
+                                <TitleContent>
+                                    <div class="d-flex">
+                                        @if (Improvement.StatusId == 21)
+                                        { //če jenadrejeni zavrnil
+                                          <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" class="mr-3"></MudIcon>
+                                        }
+                                        else
+                                        { //če je nadrejeni potrdil
+                                          <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" class="mr-3"></MudIcon>
+                                        }
+                                        <MudText> @GetDisplayName(_l["superiorLabel"], Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Superior).Select(x => x.ParticipantId).FirstOrDefault() ?? "")</MudText>
+                                    </div>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudGrid>
+                                        <MudItem md="12">
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => OpenWorkflowTaskDialog(1, true))">
+                                                @_l["viewDetails"]
+                                            </MudButton>
+
+                                        </MudItem>
+                                    </MudGrid>
+                                </ChildContent>
+                            </MudExpansionPanel>
+                        }
+
+                        @* PROCESS OWNER potrjevalec *@
+                        @if (Improvement.StatusId == 2 && Improvement.ProcessOwnerReviewNeeded)  //če sem v koraku 2 in je nadrejeni določen
+                        {
+                            <MudExpansionPanel Expanded="true">
+                                <TitleContent>
+                                    <div class="d-flex">
+                                        <MudIcon Icon="@Icons.Material.Filled.Pending" Color="Color.Warning" class="mr-3"></MudIcon>
+                                        <MudText>@_l["processOwnerLabel"] @GetDisplayName("", Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.ProcessOwner).Select(x => x.ParticipantId).FirstOrDefault() ?? "")</MudText>
+                                    </div>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudGrid>
+                                        <MudItem md="12">
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                       OnClick="@(() => OpenWorkflowTaskDialog(2))">
+                                                @_l["processRequest"]
+                                            </MudButton>
+                                        </MudItem>
+                                    </MudGrid>
+                                </ChildContent>
+                            </MudExpansionPanel>
+                        }
+                        else if (Improvement.StatusId > 2 && Improvement.StatusId != 21 && Improvement.ProcessOwnerReviewNeeded) //če je process owner že potrdil oz. se ga preskoči
+                        {
+                            <MudExpansionPanel Expanded="false">
+                                <TitleContent>
+                                    <div class="d-flex">
+                                        @if (Improvement.StatusId == 31)
+                                        { //če je process owner zavrnil
+                                          <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" class="mr-3"></MudIcon>
+                                        }
+                                        else
+                                        { //če je process owner potrdil
+                                          <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" class="mr-3"></MudIcon>
+                                        }
+                                        <MudText> @GetDisplayName(_l["processOwnerLabel"], Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.ProcessOwner).Select(x => x.ParticipantId).FirstOrDefault() ?? "")</MudText>
+                                    </div>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudGrid>
+                                        <MudItem md="12">
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => OpenWorkflowTaskDialog(2, true))">
+                                                @_l["viewDetails"]
+                                            </MudButton>
+
+                                        </MudItem>
+                                    </MudGrid>
+                                </ChildContent>
+                            </MudExpansionPanel>
+                        }
+
+                        @* IZVAJALEC potrjevalec *@
+                        @if ((Improvement.StatusId == 2 && !Improvement.ProcessOwnerReviewNeeded && Improvement.ImplementatorReviewNeeded) || (Improvement.StatusId == 3 && Improvement.ImplementatorReviewNeeded)) //če sem v 3. koraku in je potreben izvajalec
+                        {
+                            <MudExpansionPanel Expanded="true" Text="@GetDisplayName(_l["responsibleForImplementationLabel"], Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.ResponsibleForImplementation).Select(x => x.ParticipantId).FirstOrDefault() ?? "")"
+                                               MaxHeight="500">
+                                <TitleContent>
+                                    <div class="d-flex">
+                                        <MudIcon Icon="@Icons.Material.Filled.Pending" Color="Color.Warning" class="mr-3"></MudIcon>
+                                        <MudText>@_l["responsibleForImplementationLabel"] @GetDisplayName("", Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.ResponsibleForImplementation).Select(x => x.ParticipantId).FirstOrDefault() ?? "")</MudText>
+                                    </div>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudGrid>
+                                        <MudItem md="12">
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                       OnClick="@(() => OpenWorkflowTaskDialog(3))">
+                                                @_l["processRequest"]
+                                            </MudButton>
+                                        </MudItem>
+                                    </MudGrid>
+                                </ChildContent>
+                            </MudExpansionPanel>
+                        }
+                        else if (Improvement.StatusId > 3 && Improvement.StatusId != 21 && Improvement.StatusId != 31 && Improvement.ImplementatorReviewNeeded) //če je process owner že potrdil oz. se ga preskoči
+                        {
+                            <MudExpansionPanel Expanded="false">
+                                <TitleContent>
+                                    <div class="d-flex">
+                                        @if (Improvement.StatusId == 41)
+                                        { //če jenadrejeni zavrnil
+                                          <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" class="mr-3"></MudIcon>
+                                        }
+                                        else
+                                        { //če je nadrejeni potrdil
+                                          <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" class="mr-3"></MudIcon>
+                                        }
+                                        <MudText>
+                                            @GetDisplayName(_l["responsibleForImplementationLabel"],
+                                            Improvement.Participants.Where(x => x.ParticipantRole ==
+                                            Participant.Role.ResponsibleForImplementation).Select(x =>
+                                            x.ParticipantId).FirstOrDefault() ?? "")
+                                    </MudText>
+                                </div>
+                            </TitleContent>
+                            <ChildContent>
+                                <MudGrid>
+                                    <MudItem md="12">
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                   OnClick="@(() => OpenWorkflowTaskDialog(3, true))">
+                                            @_l["viewDetails"]
+                                        </MudButton>
+
+                                    </MudItem>
+                                </MudGrid>
+                            </ChildContent>
+
+                        </MudExpansionPanel>
+                                    }
+
+                        @*ADMINISTRATOR POTRJEVALEC 1*@
+                        @if ((Improvement.StatusId == 2 && !Improvement.ProcessOwnerReviewNeeded && !Improvement.ImplementatorReviewNeeded) || Improvement.StatusId == 4) //če sem v 4. koraku
+                        {
+                            <MudExpansionPanel Expanded="true" Text="@GetDisplayName(_l["administratorLabel"], Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Administrator).Select(x => x.ParticipantId).FirstOrDefault() ?? "")"
+                                               MaxHeight="500">
+                                <TitleContent>
+                                    <div class="d-flex">
+                                        <MudIcon Icon="@Icons.Material.Filled.Pending" Color="Color.Warning" class="mr-3"></MudIcon>
+                                        <MudText>@GetDisplayName(_l["administratorLabel"], Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Administrator).Select(x => x.ParticipantId).FirstOrDefault() ?? "")</MudText>
+                                    </div>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudGrid>
+                                        <MudItem md="12">
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                       OnClick="@(() => OpenWorkflowTaskDialog(4))">
+                                                @_l["processRequest"]
+                                            </MudButton>
+                                        </MudItem>
+                                    </MudGrid>
+                                </ChildContent>
+                            </MudExpansionPanel>
+                        }
+                        else if (Improvement.Logs.Any(l => l.StatusId == 5) && Improvement.StatusId != 21 && Improvement.StatusId != 31 && Improvement.StatusId != 41) //če je administrator že potrdil
+                        {
+                            <MudExpansionPanel Expanded="false">
+                                <TitleContent>
+                                    <div class="d-flex">
+                                        @if (Improvement.StatusId == 51)
+                                        { //če je admin zavrnil
+                                          <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" class="mr-3"></MudIcon>
+                                        }
+                                        else
+                                        { //če je admin potrdil
+                                          <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" class="mr-3"></MudIcon>
+                                        }
+                                        <MudText>
+                                            @GetDisplayName(_l["administratorLabel"],
+                                            Improvement.Participants.Where(x => x.ParticipantRole ==
+                                            Participant.Role.Administrator).Select(x =>
+                                            x.ParticipantId).FirstOrDefault() ?? "")
+                                    </MudText>
+                                </div>
+                            </TitleContent>
+                            <ChildContent>
+                                <MudGrid>
+                                    <MudItem md="12">
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                   OnClick="@(() => OpenWorkflowTaskDialog(4, true))">
+                                            @_l["viewDetails"]
+                                        </MudButton>
+
+                                    </MudItem>
+                                </MudGrid>
+                            </ChildContent>
+
+                        </MudExpansionPanel>
+                                    }
+
+                        @* ADMINISTRATOR POTRJEVALEC - gospodarska korist *@
+                        @if (Improvement.StatusId == 5 && Improvement.EconomicBenefitExists)
+                        {
+                            <MudExpansionPanel Expanded="true" Text="@GetDisplayName("Administrator (izračun KG) : ", Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Administrator).Select(x => x.ParticipantId).FirstOrDefault() ?? "")"
+                                               MaxHeight="500">
+                                <TitleContent>
+                                    <div class="d-flex">
+                                        <MudIcon Icon="@Icons.Material.Filled.Pending" Color="Color.Warning" class="mr-3"></MudIcon>
+                                        <MudText>@GetDisplayName("Administrator (izračun KG): ", Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Administrator).Select(x => x.ParticipantId).FirstOrDefault() ?? "")</MudText>
+                                    </div>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudGrid>
+                                        <MudItem md="12">
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                       OnClick="@(() => OpenWorkflowTaskDialog(5))">
+                                                @_l["calculateEconomicBenefit"]
+                                            </MudButton>
+                                        </MudItem>
+                                    </MudGrid>
+                                </ChildContent>
+                            </MudExpansionPanel>
+                        }
+                        else if (Improvement.StatusId > 5 && Improvement.StatusId != 21 && Improvement.StatusId != 31 && Improvement.StatusId != 41 && Improvement.StatusId != 51 && Improvement.Participants.Where(x => x.ParticipantRole == Participant.Role.Administrator).Count() > 0 && Improvement.EconomicBenefitExists) //če je administrator že potrdil oz. se ga preskoči
+                        {
+                            <MudExpansionPanel Expanded="false">
+                                <TitleContent>
+                                    <div class="d-flex">
+                                        @if (Improvement.StatusId == 51)
+                                        { //če je admin zavrnil
+                                          <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" class="mr-3"></MudIcon>
+                                        }
+                                        else
+                                        { //če je admin potrdil
+                                          <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" class="mr-3"></MudIcon>
+                                        }
+                                        <MudText>
+                                            @GetDisplayName("Administrator (izračun KG): ",
+                                            Improvement.Participants.Where(x => x.ParticipantRole ==
+                                            Participant.Role.Administrator).Select(x =>
+                                            x.ParticipantId).FirstOrDefault() ?? "")
+                                    </MudText>
+                                </div>
+                            </TitleContent>
+                            <ChildContent>
+                                <MudGrid>
+                                    <MudItem md="12">
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                                   OnClick="@(() => OpenWorkflowTaskDialog(5, true))">
+                                            @_l["viewDetails"]
+                                        </MudButton>
+
+                                    </MudItem>
+                                </MudGrid>
+                            </ChildContent>
+                        </MudExpansionPanel>
+                                    }
+
+                    </MudExpansionPanels>
+                </MudPaper>
+            </MudItem>
+
+
+            @code {
+                [Parameter]
+                public Improvement Improvement { get; set; } = null!;
+                [Parameter]
+                public UserContext UserContext { get; set; } = null!;
+                [Parameter]
+                public EventCallback OnDataChanged { get; set; }
+
+
+                private string GetDisplayName(string text, string hidriaId, bool isCompleted = false)
+                {
+                    var employee = _HidriaDataContext.Employees.Where(e => e.EmployeeId == hidriaId).FirstOrDefault();
+                    if (employee != null)
+                    {
+                        return $"{text} {employee.FirstName} {employee.LastName}";
+                    }
+                    return hidriaId; // Return the ID if no match is found
+                }
+                private async Task OpenWorkflowTaskDialog(int statusNr, bool isReadOnly = false)
+                {
+
+                    switch (statusNr)
+                    {
+                        case 1: // Superior
+                            var _dialogSuperior = await DialogService.ShowAsync<Dialog_Approval_Superior>(_l["superiorDialog"], new DialogParameters<Dialog_Approval_Superior> {
+                                { x => x.Improvement, Improvement },
+                                { x => x.IsReadOnly, isReadOnly }
+                            });
+                            var _resultSuperior = await _dialogSuperior.Result; //rezultat dialoga čakam zato, da avtomatsko osveži UI po potrditvi
+                                                                                // If the dialog was not canceled, notify parent to refresh data
+                            if (_resultSuperior != null && !_resultSuperior.Canceled)
+                            {
+                                await OnDataChanged.InvokeAsync();
+                            }
+
+                            break;
+                        case 2:
+                            var _dialogProcessOwner = await DialogService.ShowAsync<Dialog_Approval_ProcessOwner>(_l["processOwnerDialog"], new DialogParameters<Dialog_Approval_ProcessOwner> {
+                                { x => x.Improvement, Improvement },
+                                { x => x.IsReadOnly, isReadOnly }
+
+                            });
+                            var _resultProcessOwner = await _dialogProcessOwner.Result;
+                            if (_resultProcessOwner != null && !_resultProcessOwner.Canceled)
+                            {
+                                await OnDataChanged.InvokeAsync();
+                            }
+
+                            break;
+                        case 3:
+                            var _dialogImplementator = await DialogService.ShowAsync<Dialog_Approval_Implementator>(_l["implementatorDialog"], new DialogParameters<Dialog_Approval_Implementator> {
+                                { x => x.Improvement, Improvement },
+                                { x => x.IsReadOnly, isReadOnly }
+                            });
+                            var _resultImplementator = await _dialogImplementator.Result;
+                            if (_resultImplementator != null && !_resultImplementator.Canceled)
+                            {
+                                await OnDataChanged.InvokeAsync();
+                            }
+                            break;
+                        case 4:
+                            var _dialogAdministartor = await DialogService.ShowAsync<Dialog_Approval_Administrator>(_l["administratorDialog"], new DialogParameters<Dialog_Approval_Administrator> {
+                                { x => x.Improvement, Improvement },
+                                { x => x.IsReadOnly, isReadOnly }
+                            });
+                            var _resultAdministartor = await _dialogAdministartor.Result;
+                            if (_resultAdministartor != null && !_resultAdministartor.Canceled)
+                            {
+                                await OnDataChanged.InvokeAsync();
+                            }
+                            break;
+                        case 5:
+                            var _dialogAdministartorEconomicBenefitCalc = await DialogService.ShowAsync<Dialog_Approval_AdministratorEconocomicBenefitCalc>(_l["administratorEconomicDialog"], new DialogParameters<Dialog_Approval_AdministratorEconocomicBenefitCalc> {
+                                { x => x.Improvement, Improvement },
+                                { x => x.IsReadOnly, isReadOnly }
+                            });
+                            var _resultAdministartorEconomicBenefitCalcd = await _dialogAdministartorEconomicBenefitCalc.Result;
+                            if (_resultAdministartorEconomicBenefitCalcd != null && !_resultAdministartorEconomicBenefitCalcd.Canceled)
+                            {
+                                await OnDataChanged.InvokeAsync();
+                            }
+                            break;
+
+                        default:
+                            throw new ArgumentException("Invalid role for workflow task dialog.");
+                    }
+
+
+                }
+            }
+            """/*,
+            csharpSyntaxFormattingOptions: RazorCSharpSyntaxFormattingOptions.Default with
+            {
+                NewLines = RazorNewLinePlacement.Before
+            }*/);
 }
