@@ -55,6 +55,14 @@ Razor documents contain multiple languages:
 - **Editor integration**: Consider both Visual Studio and VS Code experiences
 - **Backwards compatibility**: Maintain compatibility with existing Razor syntax
 
+### Cohosting Architecture
+
+Cohosting endpoints share logic between VS and VS Code using base classes with virtual methods:
+- **Shared logic** goes in base classes in `Microsoft.CodeAnalysis.Razor.CohostingShared` (e.g., `CohostDocumentPullDiagnosticsEndpointBase`)
+- **Platform-specific behavior** is implemented by overriding virtual methods in:
+  - `Microsoft.VisualStudio.LanguageServices.Razor` for VS
+  - `Microsoft.VisualStudioCode.RazorExtension` for VS Code
+
 ## Build and Development
 
 ### Prerequisites

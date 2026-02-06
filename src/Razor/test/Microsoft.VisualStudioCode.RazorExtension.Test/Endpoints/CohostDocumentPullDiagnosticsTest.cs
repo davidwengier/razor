@@ -19,8 +19,9 @@ public partial class CohostDocumentPullDiagnosticsTest
         var inputText = await document.GetTextAsync(DisposalToken);
 
         var requestInvoker = new TestHtmlRequestInvoker([(VSInternalMethods.DocumentPullDiagnosticName, htmlResponse)]);
+        var diagnosticsCacheService = new DiagnosticsCacheService(LoggerFactory);
 
-        var endpoint = new DocumentPullDiagnosticsEndpoint(IncompatibleProjectService, RemoteServiceInvoker, requestInvoker, ClientCapabilitiesService, NoOpTelemetryReporter.Instance, LoggerFactory);
+        var endpoint = new DocumentPullDiagnosticsEndpoint(IncompatibleProjectService, RemoteServiceInvoker, requestInvoker, ClientCapabilitiesService, diagnosticsCacheService, NoOpTelemetryReporter.Instance, LoggerFactory);
 
         var result = await endpoint.GetTestAccessor().HandleRequestAsync(document, DisposalToken);
 

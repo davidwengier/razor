@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.Immutable;
 using System.Composition;
 using System.Threading;
@@ -14,6 +13,7 @@ using Microsoft.CodeAnalysis.Razor.Logging;
 using Microsoft.CodeAnalysis.Razor.Protocol;
 using Microsoft.CodeAnalysis.Razor.Remote;
 using Microsoft.CodeAnalysis.Razor.Telemetry;
+using Roslyn.LanguageServer.Protocol;
 
 namespace Microsoft.VisualStudio.Razor.LanguageClient.Cohost;
 
@@ -29,13 +29,15 @@ internal sealed class DocumentPullDiagnosticsEndpoint(
     IRemoteServiceInvoker remoteServiceInvoker,
     IHtmlRequestInvoker requestInvoker,
     IClientCapabilitiesService clientCapabilitiesService,
+    IDiagnosticsCacheService diagnosticsCacheService,
     ITelemetryReporter telemetryReporter,
     ILoggerFactory loggerFactory)
-    : CohostDocumentPullDiagnosticsEndpointBase<DocumentDiagnosticParams, FullDocumentDiagnosticReport?>(
+    : CohostDocumentPullDiagnosticsEndpointBase<DocumentDiagnosticParams, SumType<FullDocumentDiagnosticReport, UnchangedDocumentDiagnosticReport>?>(
         incompatibleProjectService,
         remoteServiceInvoker,
         requestInvoker,
         clientCapabilitiesService,
+        diagnosticsCacheService,
         telemetryReporter,
         loggerFactory.GetOrCreateLogger<DocumentPullDiagnosticsEndpoint>()), IDynamicRegistrationProvider
 {
@@ -62,19 +64,27 @@ internal sealed class DocumentPullDiagnosticsEndpoint(
     protected override RazorTextDocumentIdentifier? GetRazorTextDocumentIdentifier(DocumentDiagnosticParams request)
         => request.TextDocument?.ToRazorTextDocumentIdentifier();
 
-    protected async override Task<FullDocumentDiagnosticReport?> HandleRequestAsync(DocumentDiagnosticParams request, TextDocument razorDocument, CancellationToken cancellationToken)
+    protected async override Task<SumType<FullDocumentDiagnosticReport, UnchangedDocumentDiagnosticReport>?> HandleRequestAsync(DocumentDiagnosticParams request, TextDocument razorDocument, CancellationToken cancellationToken)
     {
-        var results = await GetDiagnosticsAsync(razorDocument, cancellationToken).ConfigureAwait(false);
+        var result = await GetDiagnosticsAsync(razorDocument, request.PreviousResultId, cancellationToken).ConfigureAwait(false);
 
-        if (results is null)
+        if (result is null)
         {
             return null;
         }
 
-        return new()
+        if (result.Value.IsUnchanged)
         {
-            Items = results,
-            ResultId = Guid.NewGuid().ToString()
+            return new UnchangedDocumentDiagnosticReport
+            {
+                ResultId = result.Value.ResultId
+            };
+        }
+
+        return new FullDocumentDiagnosticReport
+        {
+            Items = result.Value.Diagnostics is { } diagnostics ? [.. diagnostics] : [],
+            ResultId = result.Value.ResultId
         };
     }
 
@@ -82,8 +92,10 @@ internal sealed class DocumentPullDiagnosticsEndpoint(
 
     internal readonly struct TestAccessor(DocumentPullDiagnosticsEndpoint instance)
     {
-        public Task<LspDiagnostic[]?> HandleRequestAsync(TextDocument razorDocument, CancellationToken cancellationToken)
-            => instance.GetDiagnosticsAsync(razorDocument, cancellationToken);
+        public async Task<LspDiagnostic[]?> HandleRequestAsync(TextDocument razorDocument, CancellationToken cancellationToken)
+        {
+            var result = await instance.GetDiagnosticsAsync(razorDocument, previousResultId: null, cancellationToken).ConfigureAwait(false);
+            return result?.Diagnostics is { } diagnostics ? [.. diagnostics] : null;
+        }
     }
 }
-

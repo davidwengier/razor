@@ -19,6 +19,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Completion\CohostDocumentCompletionEndpoint.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Completion\CohostDocumentCompletionResolveEndpoint.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Diagnostics\CohostDocumentPullDiagnosticsEndpointBase.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Diagnostics\Caching\DiagnosticsCacheEntry.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Diagnostics\Caching\DiagnosticsCacheService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Diagnostics\Caching\DiagnosticsRequestResult.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Diagnostics\Caching\IDiagnosticsCacheService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Diagnostics\Caching\RazorDocumentVersion.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DocumentColor\CohostColorPresentationEndpoint.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DocumentColor\CohostDocumentColorEndpoint.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DocumentHighlight\CohostDocumentHighlightEndpoint.cs" />

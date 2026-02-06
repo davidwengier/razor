@@ -10,11 +10,23 @@ namespace Microsoft.CodeAnalysis.Razor.Remote;
 
 internal interface IRemoteDiagnosticsService : IRemoteJsonService
 {
-    ValueTask<ImmutableArray<LspDiagnostic>> GetDiagnosticsAsync(
+    /// <summary>
+    /// Gets diagnostics with per-source results to enable partial caching.
+    /// When a source (C#, HTML, or Razor) hasn't changed, devenv can reuse cached translated diagnostics.
+    /// </summary>
+    /// <param name="solutionInfo">Solution info for the request.</param>
+    /// <param name="documentId">The Razor document ID.</param>
+    /// <param name="csharpDiagnostics">Raw C# diagnostics to translate (empty if using cached).</param>
+    /// <param name="htmlDiagnostics">Raw HTML diagnostics to translate (empty if using cached).</param>
+    /// <param name="previousRazorChecksum">Content checksum from previous call; if matches current, Razor diagnostics are unchanged.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Per-source translated diagnostics with content checksum for future caching.</returns>
+    ValueTask<DiagnosticsResult> GetDiagnosticsAsync(
         JsonSerializableRazorPinnedSolutionInfoWrapper solutionInfo,
         JsonSerializableDocumentId documentId,
         LspDiagnostic[] csharpDiagnostics,
         LspDiagnostic[] htmlDiagnostics,
+        string? previousRazorChecksum,
         CancellationToken cancellationToken);
 
     ValueTask<ImmutableArray<LspDiagnostic>> GetTaskListDiagnosticsAsync(

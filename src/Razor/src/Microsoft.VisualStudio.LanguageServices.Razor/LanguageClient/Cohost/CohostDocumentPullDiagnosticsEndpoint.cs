@@ -33,6 +33,7 @@ internal sealed class CohostDocumentPullDiagnosticsEndpoint(
     IHtmlRequestInvoker requestInvoker,
     IClientSettingsManager clientSettingsManager,
     IClientCapabilitiesService clientCapabilitiesService,
+    IDiagnosticsCacheService diagnosticsCacheService,
     ITelemetryReporter telemetryReporter,
     ILoggerFactory loggerFactory)
     : CohostDocumentPullDiagnosticsEndpointBase<VSInternalDocumentDiagnosticsParams, VSInternalDiagnosticReport[]>(
@@ -40,6 +41,7 @@ internal sealed class CohostDocumentPullDiagnosticsEndpoint(
         remoteServiceInvoker,
         requestInvoker,
         clientCapabilitiesService,
+        diagnosticsCacheService,
         telemetryReporter,
         loggerFactory.GetOrCreateLogger<CohostDocumentPullDiagnosticsEndpoint>()), IDynamicRegistrationProvider
 {
@@ -80,26 +82,36 @@ internal sealed class CohostDocumentPullDiagnosticsEndpoint(
                 cancellationToken).ConfigureAwait(false);
         }
 
-        var results = await GetVSDiagnosticsAsync(razorDocument, cancellationToken).ConfigureAwait(false);
-        if (results is null)
+        var previousResultId = request.PreviousResultId;
+
+        var diagnosticsResult = await GetVSDiagnosticsAsync(razorDocument, previousResultId, cancellationToken).ConfigureAwait(false);
+        if (diagnosticsResult is null)
         {
             return null;
         }
 
         return [new()
         {
-            Diagnostics = results,
-            ResultId = Guid.NewGuid().ToString()
+            Diagnostics = diagnosticsResult.Value.Diagnostics,
+            ResultId = diagnosticsResult.Value.ResultId
         }];
     }
 
-    private async Task<LspDiagnostic[]?> GetVSDiagnosticsAsync(TextDocument razorDocument, CancellationToken cancellationToken)
+    private async Task<(LspDiagnostic[]? Diagnostics, string ResultId)?> GetVSDiagnosticsAsync(TextDocument razorDocument, string? previousResultId, CancellationToken cancellationToken)
     {
-        var diagnostics = await GetDiagnosticsAsync(razorDocument, cancellationToken).ConfigureAwait(false);
-        if (diagnostics is null)
+        var result = await GetDiagnosticsAsync(razorDocument, previousResultId, cancellationToken).ConfigureAwait(false);
+        if (result is null)
         {
             return null;
         }
+
+        // If unchanged, return with same resultId but still need to provide empty array for VS
+        if (result.Value.IsUnchanged)
+        {
+            return ([], result.Value.ResultId);
+        }
+
+        var diagnostics = result.Value.Diagnostics!.Value;
 
         // We always use Roslyn's project understanding, and in VS the project Id is not necessarily the Id that is reported by Roslyn
         // for diagnostics. Rather than try to replicate any of this behaviour directly, we just take Roslyn as the source of truth,
@@ -121,14 +133,15 @@ internal sealed class CohostDocumentPullDiagnosticsEndpoint(
             results[i] = vsDiagnostic;
         }
 
-        return results;
+        return (results, result.Value.ResultId);
     }
 
-    protected override VSInternalDocumentDiagnosticsParams CreateHtmlParams(Uri uri)
+    protected override VSInternalDocumentDiagnosticsParams CreateHtmlParams(Uri uri, string? previousResultId)
     {
         return new VSInternalDocumentDiagnosticsParams
         {
-            TextDocument = new TextDocumentIdentifier { DocumentUri = new(uri) }
+            TextDocument = new TextDocumentIdentifier { DocumentUri = new(uri) },
+            PreviousResultId = previousResultId
         };
     }
 
@@ -144,6 +157,42 @@ internal sealed class CohostDocumentPullDiagnosticsEndpoint(
         }
 
         return allDiagnostics.ToArray();
+    }
+
+    protected override string? ExtractHtmlResultId(VSInternalDiagnosticReport[] result)
+    {
+        // VS Internal diagnostics returns an array of reports, each with its own ResultId
+        // We use the first non-null ResultId as the representative for caching
+        foreach (var report in result)
+        {
+            if (report.ResultId is not null)
+            {
+                return report.ResultId;
+            }
+        }
+
+        return null;
+    }
+
+    protected override bool IsHtmlResponseUnchanged(VSInternalDiagnosticReport[] result, string? previousResultId)
+    {
+        // If we have a previous result ID and the response contains no diagnostics
+        // with a matching result ID, it indicates unchanged
+        if (previousResultId is null)
+        {
+            return false;
+        }
+
+        foreach (var report in result)
+        {
+            // If we get an empty diagnostics array with the same result ID, it's unchanged
+            if (report.ResultId == previousResultId && (report.Diagnostics is null || report.Diagnostics.Length == 0))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private async Task<VSInternalDiagnosticReport[]> HandleTaskListItemRequestAsync(TextDocument razorDocument, ImmutableArray<string> taskListDescriptors, CancellationToken cancellationToken)
@@ -187,8 +236,17 @@ internal sealed class CohostDocumentPullDiagnosticsEndpoint(
 
     internal readonly struct TestAccessor(CohostDocumentPullDiagnosticsEndpoint instance)
     {
-        public Task<LspDiagnostic[]?> HandleRequestAsync(TextDocument razorDocument, CancellationToken cancellationToken)
-            => instance.GetVSDiagnosticsAsync(razorDocument, cancellationToken);
+        public async Task<LspDiagnostic[]?> HandleRequestAsync(TextDocument razorDocument, CancellationToken cancellationToken)
+        {
+            var result = await instance.GetVSDiagnosticsAsync(razorDocument, previousResultId: null, cancellationToken).ConfigureAwait(false);
+            return result?.Diagnostics;
+        }
+
+        public async Task<(LspDiagnostic[]? Diagnostics, string? ResultId)> HandleRequestWithResultIdAsync(TextDocument razorDocument, string? previousResultId, CancellationToken cancellationToken)
+        {
+            var result = await instance.GetVSDiagnosticsAsync(razorDocument, previousResultId, cancellationToken).ConfigureAwait(false);
+            return (result?.Diagnostics, result?.ResultId);
+        }
 
         public Task<VSInternalDiagnosticReport[]> HandleTaskListItemRequestAsync(TextDocument razorDocument, ImmutableArray<string> taskListDescriptors, CancellationToken cancellationToken)
             => instance.HandleTaskListItemRequestAsync(razorDocument, taskListDescriptors, cancellationToken);

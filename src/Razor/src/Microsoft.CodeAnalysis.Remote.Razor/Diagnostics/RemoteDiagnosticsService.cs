@@ -23,34 +23,60 @@ internal sealed class RemoteDiagnosticsService(in ServiceArgs args) : RazorDocum
 
     private readonly RazorTranslateDiagnosticsService _translateDiagnosticsService = args.ExportProvider.GetExportedValue<RazorTranslateDiagnosticsService>();
 
-    public ValueTask<ImmutableArray<LspDiagnostic>> GetDiagnosticsAsync(
+    public ValueTask<DiagnosticsResult> GetDiagnosticsAsync(
         JsonSerializableRazorPinnedSolutionInfoWrapper solutionInfo,
         JsonSerializableDocumentId documentId,
         LspDiagnostic[] csharpDiagnostics,
         LspDiagnostic[] htmlDiagnostics,
+        string? previousRazorChecksum,
         CancellationToken cancellationToken)
         => RunServiceAsync(
             solutionInfo,
             documentId,
-            context => GetDiagnosticsAsync(context, csharpDiagnostics, htmlDiagnostics, cancellationToken),
+            context => GetDiagnosticsAsync(context, csharpDiagnostics, htmlDiagnostics, previousRazorChecksum, cancellationToken),
             cancellationToken);
 
-    private async ValueTask<ImmutableArray<LspDiagnostic>> GetDiagnosticsAsync(
+    private async ValueTask<DiagnosticsResult> GetDiagnosticsAsync(
         RemoteDocumentContext context,
         LspDiagnostic[] csharpDiagnostics,
         LspDiagnostic[] htmlDiagnostics,
+        string? previousRazorChecksum,
         CancellationToken cancellationToken)
     {
-        // We've got C# and Html, lets get Razor diagnostics
         var codeDocument = await context.GetCodeDocumentAsync(cancellationToken).ConfigureAwait(false);
-        // Yes, CSharpDocument.Documents are the Razor diagnostics. Don't ask.
-        var razorDiagnostics = codeDocument.GetRequiredCSharpDocument().Diagnostics;
 
-        return [
-            .. RazorDiagnosticHelper.Convert(razorDiagnostics, codeDocument.Source.Text, context.Snapshot),
-            .. await _translateDiagnosticsService.TranslateAsync(RazorLanguageKind.CSharp, csharpDiagnostics, context.Snapshot, cancellationToken).ConfigureAwait(false),
-            .. await _translateDiagnosticsService.TranslateAsync(RazorLanguageKind.Html, htmlDiagnostics, context.Snapshot, cancellationToken).ConfigureAwait(false)
-        ];
+        // Use document content checksum for cache validation, consistent with HtmlDocumentSynchronizer
+        var checksum = await context.TextDocument.GetChecksumAsync(cancellationToken).ConfigureAwait(false);
+        var currentRazorChecksum = checksum.ToString();
+
+        // Only compute Razor diagnostics if the document has changed
+        ImmutableArray<LspDiagnostic> translatedRazorDiagnostics;
+        if (previousRazorChecksum == currentRazorChecksum)
+        {
+            // Document unchanged - caller should use cached value
+            translatedRazorDiagnostics = [];
+        }
+        else
+        {
+            translatedRazorDiagnostics = [.. RazorDiagnosticHelper.Convert(codeDocument.GetRequiredCSharpDocument().Diagnostics, codeDocument.Source.Text, context.Snapshot)];
+        }
+
+        // Translate C# and HTML diagnostics (always needed unless caller passes empty arrays)
+        ImmutableArray<LspDiagnostic> translatedCSharpDiagnostics = csharpDiagnostics.Length > 0
+            ? [.. await _translateDiagnosticsService.TranslateAsync(RazorLanguageKind.CSharp, csharpDiagnostics, context.Snapshot, cancellationToken).ConfigureAwait(false)]
+            : [];
+
+        ImmutableArray<LspDiagnostic> translatedHtmlDiagnostics = htmlDiagnostics.Length > 0
+            ? [.. await _translateDiagnosticsService.TranslateAsync(RazorLanguageKind.Html, htmlDiagnostics, context.Snapshot, cancellationToken).ConfigureAwait(false)]
+            : [];
+
+        return new DiagnosticsResult
+        {
+            CSharpDiagnostics = translatedCSharpDiagnostics,
+            HtmlDiagnostics = translatedHtmlDiagnostics,
+            RazorDiagnostics = translatedRazorDiagnostics,
+            RazorDiagnosticsChecksum = currentRazorChecksum
+        };
     }
 
     public ValueTask<ImmutableArray<LspDiagnostic>> GetTaskListDiagnosticsAsync(

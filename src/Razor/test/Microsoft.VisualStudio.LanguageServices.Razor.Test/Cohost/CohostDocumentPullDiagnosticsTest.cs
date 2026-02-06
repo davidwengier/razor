@@ -1,6 +1,7 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Razor.LanguageServer.Test;
@@ -535,6 +536,169 @@ public partial class CohostDocumentPullDiagnosticsTest
             """,
             taskListRequest: true);
 
+    [Fact]
+    public async Task HtmlDiagnostics_UnchangedResponse_ReturnsUnchanged()
+    {
+        // This test verifies that when all diagnostics sources are unchanged,
+        // we return "unchanged" to the client (so they use their cached copy)
+
+        var input = """
+            <div>
+                <not_a_tag />
+            </div>
+            """;
+
+        var document = CreateProjectAndRazorDocument(input);
+
+        var htmlResultId = "html-result-123";
+        var htmlDiagnostic = new VSDiagnostic
+        {
+            Code = "HTM1337",
+            Message = "Unknown element",
+            Range = new Roslyn.LanguageServer.Protocol.Range
+            {
+                Start = new Roslyn.LanguageServer.Protocol.Position(1, 4),
+                End = new Roslyn.LanguageServer.Protocol.Position(1, 18)
+            },
+            Projects = [new VSDiagnosticProjectInformation { ProjectIdentifier = "Html" }]
+        };
+
+        var callCount = 0;
+        var requestInvoker = new TestHtmlRequestInvoker([(VSInternalMethods.DocumentPullDiagnosticName,
+            (Func<object, object?>)(request =>
+            {
+                callCount++;
+                var diagnosticParams = (VSInternalDocumentDiagnosticsParams)request;
+
+                if (callCount == 1)
+                {
+                    // First call: return diagnostics with a resultId
+                    return new VSInternalDiagnosticReport[]
+                    {
+                        new()
+                        {
+                            ResultId = htmlResultId,
+                            Diagnostics = [htmlDiagnostic]
+                        }
+                    };
+                }
+                else
+                {
+                    // Second call: if previousResultId matches, return unchanged (empty diagnostics, same resultId)
+                    Assert.Equal(htmlResultId, diagnosticParams.PreviousResultId);
+                    return new VSInternalDiagnosticReport[]
+                    {
+                        new()
+                        {
+                            ResultId = htmlResultId,
+                            Diagnostics = [] // Empty means unchanged
+                        }
+                    };
+                }
+            }))]);
+
+        var diagnosticsCacheService = new DiagnosticsCacheService(LoggerFactory);
+        var endpoint = new CohostDocumentPullDiagnosticsEndpoint(IncompatibleProjectService, RemoteServiceInvoker, requestInvoker, ClientSettingsManager, ClientCapabilitiesService, diagnosticsCacheService, NoOpTelemetryReporter.Instance, LoggerFactory);
+
+        // First request - should get diagnostics and cache them, get back a resultId
+        var (result1, resultId1) = await endpoint.GetTestAccessor().HandleRequestWithResultIdAsync(document, previousResultId: null, DisposalToken);
+        Assert.NotNull(result1);
+        Assert.Single(result1, d => d.Code!.Value.Second == "HTM1337");
+        Assert.NotNull(resultId1);
+        Assert.Equal(1, callCount);
+
+        // Second request with the previous resultId - HTML server returns "unchanged"
+        // Since nothing has changed overall, we return "unchanged" (empty diagnostics, same resultId)
+        var (result2, resultId2) = await endpoint.GetTestAccessor().HandleRequestWithResultIdAsync(document, previousResultId: resultId1, DisposalToken);
+        Assert.NotNull(result2);
+        Assert.Empty(result2); // Empty means unchanged - client should use its cached copy
+        Assert.Equal(resultId1, resultId2); // Same resultId indicates unchanged
+        Assert.Equal(2, callCount); // HTML was still called to check for changes
+    }
+
+    [Fact]
+    public async Task HtmlDiagnostics_ChangedResponse_ReturnsNewDiagnostics()
+    {
+        // This test verifies that when HTML server returns new diagnostics,
+        // we use the new diagnostics (not cached)
+
+        var input = """
+            <div>
+                <not_a_tag />
+            </div>
+            """;
+
+        var document = CreateProjectAndRazorDocument(input);
+
+        var htmlDiagnostic1 = new VSDiagnostic
+        {
+            Code = "HTM1337",
+            Message = "Unknown element",
+            Range = new Roslyn.LanguageServer.Protocol.Range
+            {
+                Start = new Roslyn.LanguageServer.Protocol.Position(1, 4),
+                End = new Roslyn.LanguageServer.Protocol.Position(1, 18)
+            },
+            Projects = [new VSDiagnosticProjectInformation { ProjectIdentifier = "Html" }]
+        };
+
+        var htmlDiagnostic2 = new VSDiagnostic
+        {
+            Code = "HTM9999",
+            Message = "New error",
+            Range = new Roslyn.LanguageServer.Protocol.Range
+            {
+                Start = new Roslyn.LanguageServer.Protocol.Position(0, 0),
+                End = new Roslyn.LanguageServer.Protocol.Position(0, 5)
+            },
+            Projects = [new VSDiagnosticProjectInformation { ProjectIdentifier = "Html" }]
+        };
+
+        var callCount = 0;
+        var requestInvoker = new TestHtmlRequestInvoker([(VSInternalMethods.DocumentPullDiagnosticName,
+            (Func<object, object?>)(_ =>
+            {
+                callCount++;
+                if (callCount == 1)
+                {
+                    return new VSInternalDiagnosticReport[]
+                    {
+                        new()
+                        {
+                            ResultId = "result-1",
+                            Diagnostics = [htmlDiagnostic1]
+                        }
+                    };
+                }
+                else
+                {
+                    // Different resultId and different diagnostics
+                    return new VSInternalDiagnosticReport[]
+                    {
+                        new()
+                        {
+                            ResultId = "result-2",
+                            Diagnostics = [htmlDiagnostic2]
+                        }
+                    };
+                }
+            }))]);
+
+        var diagnosticsCacheService = new DiagnosticsCacheService(LoggerFactory);
+        var endpoint = new CohostDocumentPullDiagnosticsEndpoint(IncompatibleProjectService, RemoteServiceInvoker, requestInvoker, ClientSettingsManager, ClientCapabilitiesService, diagnosticsCacheService, NoOpTelemetryReporter.Instance, LoggerFactory);
+
+        // First request - get first set of diagnostics with resultId
+        var (result1, resultId1) = await endpoint.GetTestAccessor().HandleRequestWithResultIdAsync(document, previousResultId: null, DisposalToken);
+        Assert.NotNull(result1);
+        Assert.Single(result1, d => d.Code!.Value.Second == "HTM1337");
+        Assert.NotNull(resultId1);
+
+        // Second request with previous resultId - should get new diagnostics since HTML server returned new ones
+        var (result2, _) = await endpoint.GetTestAccessor().HandleRequestWithResultIdAsync(document, previousResultId: resultId1, DisposalToken);
+        Assert.NotNull(result2);
+        Assert.Single(result2, d => d.Code!.Value.Second == "HTM9999");
+    }
+
     private async Task VerifyDiagnosticsAsync(TestCode input, VSInternalDiagnosticReport[]? htmlResponse = null, bool taskListRequest = false, bool miscellaneousFile = false)
     {
         var document = CreateProjectAndRazorDocument(input.Text, miscellaneousFile: miscellaneousFile);
@@ -542,9 +706,8 @@ public partial class CohostDocumentPullDiagnosticsTest
 
         var requestInvoker = new TestHtmlRequestInvoker([(VSInternalMethods.DocumentPullDiagnosticName, htmlResponse)]);
 
-        var clientSettingsManager = new ClientSettingsManager([]);
-        var clientCapabilitiesService = new TestClientCapabilitiesService(new VSInternalClientCapabilities { SupportsVisualStudioExtensions = true });
-        var endpoint = new CohostDocumentPullDiagnosticsEndpoint(IncompatibleProjectService, RemoteServiceInvoker, requestInvoker, clientSettingsManager, clientCapabilitiesService, NoOpTelemetryReporter.Instance, LoggerFactory);
+        var diagnosticsCacheService = new DiagnosticsCacheService(LoggerFactory);
+        var endpoint = new CohostDocumentPullDiagnosticsEndpoint(IncompatibleProjectService, RemoteServiceInvoker, requestInvoker, ClientSettingsManager, ClientCapabilitiesService, diagnosticsCacheService, NoOpTelemetryReporter.Instance, LoggerFactory);
 
         var result = taskListRequest
             ? await endpoint.GetTestAccessor().HandleTaskListItemRequestAsync(document, ["TODO"], DisposalToken)

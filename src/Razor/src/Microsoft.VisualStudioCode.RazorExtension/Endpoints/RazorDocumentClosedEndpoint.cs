@@ -17,9 +17,12 @@ namespace Microsoft.VisualStudioCode.RazorExtension.Endpoints;
 [ExportRazorStatelessLspService(typeof(RazorDocumentClosedEndpoint))]
 [RazorEndpoint("razor/documentClosed")]
 [method: ImportingConstructor]
-internal class RazorDocumentClosedEndpoint(IHtmlDocumentSynchronizer htmlDocumentSynchronizer) : AbstractRazorCohostDocumentRequestHandler<TextDocumentIdentifier, VoidResult>
+internal class RazorDocumentClosedEndpoint(
+    IHtmlDocumentSynchronizer htmlDocumentSynchronizer,
+    IDiagnosticsCacheService diagnosticsCacheService) : AbstractRazorCohostDocumentRequestHandler<TextDocumentIdentifier, VoidResult>
 {
     private readonly IHtmlDocumentSynchronizer _htmlDocumentSynchronizer = htmlDocumentSynchronizer;
+    private readonly IDiagnosticsCacheService _diagnosticsCacheService = diagnosticsCacheService;
 
     protected override bool MutatesSolutionState => false;
 
@@ -30,7 +33,9 @@ internal class RazorDocumentClosedEndpoint(IHtmlDocumentSynchronizer htmlDocumen
 
     protected override Task<VoidResult> HandleRequestAsync(TextDocumentIdentifier textDocument, RazorCohostRequestContext requestContext, CancellationToken cancellationToken)
     {
-        _htmlDocumentSynchronizer.DocumentRemoved(textDocument.DocumentUri.GetRequiredParsedUri(), cancellationToken);
+        var uri = textDocument.DocumentUri.GetRequiredParsedUri();
+        _htmlDocumentSynchronizer.DocumentRemoved(uri, cancellationToken);
+        _diagnosticsCacheService.DocumentRemoved(uri);
         return SpecializedTasks.Default<VoidResult>();
     }
 }
