@@ -17,7 +17,6 @@ using Microsoft.CodeAnalysis.Razor.TextDifferencing;
 using Microsoft.CodeAnalysis.Text;
 using RazorRazorSyntaxNodeList = Microsoft.AspNetCore.Razor.Language.Syntax.SyntaxList<Microsoft.AspNetCore.Razor.Language.Syntax.RazorSyntaxNode>;
 using RazorSyntaxNode = Microsoft.AspNetCore.Razor.Language.Syntax.SyntaxNode;
-using RazorSyntaxNodeList = Microsoft.AspNetCore.Razor.Language.Syntax.SyntaxList<Microsoft.AspNetCore.Razor.Language.Syntax.SyntaxNode>;
 using RazorSyntaxNodeOrToken = Microsoft.AspNetCore.Razor.Language.Syntax.SyntaxNodeOrToken;
 
 namespace Microsoft.CodeAnalysis.Razor.Formatting;
@@ -62,7 +61,6 @@ internal sealed class RazorFormattingPass : IFormattingPass
             // Disclaimer: CSharpCodeBlockSyntax is used a _lot_ in razor so these methods are probably
             // being overly careful to only try to format syntax forms they care about.
             TryFormatCSharpBlockStructure(context, ref changes.AsRef(), source, node);
-            TryFormatSingleLineDirective(ref changes.AsRef(), node);
             TryFormatBlocks(context, ref changes.AsRef(), source, node);
         }
 
@@ -292,57 +290,6 @@ internal sealed class RazorFormattingPass : IFormattingPass
             }
 
             return whitespace != null;
-        }
-    }
-
-    private static void TryFormatSingleLineDirective(ref PooledArrayBuilder<TextChange> changes, RazorSyntaxNode node)
-    {
-        // Looking for single line directives like...
-        //
-        // @attribute [Obsolete("old")]
-        //
-        // The CSharpCodeBlockSyntax covers everything from the end of "attribute" to the end of the line
-        //
-        // ... or using directives.
-
-        // Shrink any block of C# that only has whitespace down to a single space.
-        // In the @attribute case above this would only be the whitespace between the directive and code
-        // but for @inject its also between the type and the field name.
-
-        if (IsSingleLineDirective(node, out var children))
-        {
-            foreach (var child in children)
-            {
-                if (child.ContainsOnlyWhitespace(includingNewLines: false))
-                {
-                    ShrinkToSingleSpace(child, ref changes);
-                }
-            }
-        }
-        else if (node.IsUsingDirective(out var tokens))
-        {
-            foreach (var token in tokens)
-            {
-                if (token.ContainsOnlyWhitespace(includingNewLines: false))
-                {
-                    ShrinkToSingleSpace(token, ref changes);
-                }
-            }
-        }
-
-        static bool IsSingleLineDirective(RazorSyntaxNode node, out RazorSyntaxNodeList children)
-        {
-            if (node is CSharpCodeBlockSyntax
-                {
-                    Parent.Parent: RazorDirectiveSyntax { DirectiveDescriptor.Kind: DirectiveKind.SingleLine }
-                } content)
-            {
-                children = content.Children;
-                return true;
-            }
-
-            children = default;
-            return false;
         }
     }
 
