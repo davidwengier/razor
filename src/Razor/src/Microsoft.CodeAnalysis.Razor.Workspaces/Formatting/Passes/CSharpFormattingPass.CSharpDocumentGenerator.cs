@@ -9,6 +9,7 @@ using System.Text;
 using Microsoft.AspNetCore.Razor;
 using Microsoft.AspNetCore.Razor.Language;
 using Microsoft.AspNetCore.Razor.Language.Components;
+using Microsoft.AspNetCore.Razor.Language.Extensions;
 using Microsoft.AspNetCore.Razor.Language.Syntax;
 using Microsoft.AspNetCore.Razor.PooledObjects;
 using Microsoft.CodeAnalysis.ExternalAccess.Razor.Features;
@@ -1037,7 +1038,7 @@ internal partial class CSharpFormattingPass
                 _builder.AppendLine(_sourceText.ToString(TextSpan.FromBounds(_currentToken.Position + 1, _currentLine.End)));
                 return CreateLineInfo(
                     processFormatting: true,
-                    originOffset: 1,
+                    originOffset: 1, // Just +1 for the transition, because `using` is already valid C# that means the same thing
                     formattedOffset: 0);
             }
 
@@ -1054,7 +1055,7 @@ internal partial class CSharpFormattingPass
                 return CreateLineInfo(
                     skipNextLine: true,
                     processFormatting: true,
-                    originOffset: conditions.SpanStart - _currentToken.Position,
+                    originOffset: ComponentTypeParamDirective.Directive.Directive.Length + 2, // +1 for the transition, +1 for the space after the directive
                     formattedOffset: methodDef.Length);
             }
 
@@ -1066,7 +1067,7 @@ internal partial class CSharpFormattingPass
                 _builder.AppendLine(attribute.GetContent());
                 return CreateLineInfo(
                     processFormatting: true,
-                    originOffset: attribute.SpanStart - _currentToken.Position,
+                    originOffset: AttributeDirective.Directive.Directive.Length + 2, // +1 for the transition, +1 for the space after the directive
                     formattedOffset: 0);
             }
 

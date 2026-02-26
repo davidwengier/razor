@@ -1928,14 +1928,14 @@ public class DocumentFormattingTest(ITestOutputHelper testOutput) : DocumentForm
     {
         await RunFormattingTestAsync(
             input: """
-                    @attribute     [Obsolete(   "asdf"   , error:    false)]
-                    """,
+                @attribute     [Obsolete(   "asdf"   , error:    false)]
+                """,
             htmlFormatted: """
                 @attribute     [Obsolete(   "asdf"   , error:    false)]
                 """,
             expected: """
-                    @attribute [Obsolete("asdf", error: false)]
-                    """);
+                @attribute [Obsolete("asdf", error: false)]
+                """);
     }
 
     [Fact]
@@ -1943,20 +1943,20 @@ public class DocumentFormattingTest(ITestOutputHelper testOutput) : DocumentForm
     {
         await RunFormattingTestAsync(
             input: """
-                    @attribute     [Attr(   "asdf"   , error:    false)]
-                    @attribute   [Attribute(   "asdf"   , error:    false)]
-                    @attribute [ALongAttributeName(   "asdf"   , error:    false)]
-                    """,
+                @attribute     [Attr(   "asdf"   , error:    false)]
+                @attribute   [Attribute(   "asdf"   , error:    false)]
+                @attribute [ALongAttributeName(   "asdf"   , error:    false)]
+                """,
             htmlFormatted: """
                 @attribute     [Attr(   "asdf"   , error:    false)]
                 @attribute   [Attribute(   "asdf"   , error:    false)]
                 @attribute [ALongAttributeName(   "asdf"   , error:    false)]
                 """,
             expected: """
-                    @attribute [Attr("asdf", error: false)]
-                    @attribute [Attribute("asdf", error: false)]
-                    @attribute [ALongAttributeName("asdf", error: false)]
-                    """);
+                @attribute [Attr("asdf", error: false)]
+                @attribute [Attribute("asdf", error: false)]
+                @attribute [ALongAttributeName("asdf", error: false)]
+                """);
     }
 
     [Fact]
@@ -1964,14 +1964,14 @@ public class DocumentFormattingTest(ITestOutputHelper testOutput) : DocumentForm
     {
         await RunFormattingTestAsync(
             input: """
-                    <div></div>
-                    @attribute     [Obsolete(   "asdf"   , error:    false)]
-                    <div></div>
-                    @attribute     [Obsolete(   "asdf"   , error:    false)]
-                    <div></div>
-                    @attribute     [Obsolete(   "asdf"   , error:    false)]
-                    <div></div>
-                    """,
+                <div></div>
+                @attribute     [Obsolete(   "asdf"   , error:    false)]
+                <div></div>
+                @attribute     [Obsolete(   "asdf"   , error:    false)]
+                <div></div>
+                @attribute     [Obsolete(   "asdf"   , error:    false)]
+                <div></div>
+                """,
             htmlFormatted: """
                 <div></div>
                 @attribute     [Obsolete(   "asdf"   , error:    false)]
@@ -1982,14 +1982,44 @@ public class DocumentFormattingTest(ITestOutputHelper testOutput) : DocumentForm
                 <div></div>
                 """,
             expected: """
-                    <div></div>
-                    @attribute [Obsolete("asdf", error: false)]
-                    <div></div>
-                    @attribute [Obsolete("asdf", error: false)]
-                    <div></div>
-                    @attribute [Obsolete("asdf", error: false)]
-                    <div></div>
-                    """);
+                <div></div>
+                @attribute [Obsolete("asdf", error: false)]
+                <div></div>
+                @attribute [Obsolete("asdf", error: false)]
+                <div></div>
+                @attribute [Obsolete("asdf", error: false)]
+                <div></div>
+                """);
+    }
+
+    [Fact]
+    public async Task Attribute4()
+    {
+        await RunFormattingTestAsync(
+            input: """
+                    @attribute     [Obsolete(   "asdf"   , error:    false)]
+                """,
+            htmlFormatted: """
+                    @attribute     [Obsolete(   "asdf"   , error:    false)]
+                """,
+            expected: """
+                @attribute [Obsolete("asdf", error: false)]
+                """);
+    }
+
+    [Fact]
+    public async Task Attribute5()
+    {
+        await RunFormattingTestAsync(
+            input: """
+                @attribute	[Obsolete(   "asdf"   , error:    false)]
+                """,
+            htmlFormatted: """
+                @attribute	[Obsolete(   "asdf"   , error:    false)]
+                """,
+            expected: """
+                @attribute	[Obsolete("asdf", error: false)]
+                """);
     }
 
     [Fact]
@@ -2254,14 +2284,29 @@ public class DocumentFormattingTest(ITestOutputHelper testOutput) : DocumentForm
     {
         await RunFormattingTestAsync(
             input: """
-                    @using   System;
-                    """,
+                @using   System;
+                """,
             htmlFormatted: """
                 @using   System;
                 """,
             expected: """
-                    @using System;
-                    """);
+                @using System;
+                """);
+    }
+
+    [Fact]
+    public async Task Using_Indented()
+    {
+        await RunFormattingTestAsync(
+            input: """
+                    @using   System;
+                """,
+            htmlFormatted: """
+                @using   System;
+                """,
+            expected: """
+                @using System;
+                """);
     }
 
     [Fact]
@@ -2269,14 +2314,14 @@ public class DocumentFormattingTest(ITestOutputHelper testOutput) : DocumentForm
     {
         await RunFormattingTestAsync(
             input: """
-                    @using  static   System.Math;
-                    """,
+                @using  static   System.Math;
+                """,
             htmlFormatted: """
                 @using  static   System.Math;
                 """,
             expected: """
-                    @using static System.Math;
-                    """);
+                @using static System.Math;
+                """);
     }
 
     [Fact]
@@ -2284,14 +2329,14 @@ public class DocumentFormattingTest(ITestOutputHelper testOutput) : DocumentForm
     {
         await RunFormattingTestAsync(
             input: """
-                    @using  M   =    System.Math;
-                    """,
+                @using  M   =    System.Math;
+                """,
             htmlFormatted: """
                 @using  M   =    System.Math;
                 """,
             expected: """
-                    @using M = System.Math;
-                    """);
+                @using M = System.Math;
+                """);
     }
 
     [Fact]
