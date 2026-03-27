@@ -1,0 +1,2 @@
+Full formatting for D:\Développement\MondialExtincteur V3\Dev\Hestia\MondialExtincteur\Pages\TestFormat.cshtml
+Ran out of formatted lines at index 15 of 15 (other side: 7 of 9)

@@ -1,0 +1,9 @@
+@page
+@model Test.Pages.TestFormatModel
+@{
+}
+<table>
+    <tr>
+        <td>@Environment.TickCount</td>
+    </tr>
+</table>

@@ -24,6 +24,10 @@ namespace Microsoft.VisualStudio.LanguageServices.Razor.Test.Cohost.Formatting;
 public class FormattingLogTest(ITestOutputHelper testOutput) : DocumentFormattingTestBase(testOutput)
 {
     [Fact]
+    public async Task ExplicitStatementFollowedByHtmlTagWithKAndRBraces()
+        => Assert.NotNull(await GetFormattingEditsAsync());
+
+    [Fact]
     [WorkItem("https://github.com/dotnet/vscode-csharp/issues/7264")]
     public async Task UnexpectedFalseInIndentBlockOperation()
         => Assert.NotNull(await GetFormattingEditsAsync());
@@ -81,7 +85,7 @@ public class FormattingLogTest(ITestOutputHelper testOutput) : DocumentFormattin
         }
 
         TextSpan span = default;
-        if (GetResource(testName, "Range.json") is { } rangeFile)
+        if (GetResource(testName, "Range.json") is { } rangeFile && rangeFile != "null")
         {
             var linePositionSpan = (LinePositionSpan)JsonSerializer.Deserialize(rangeFile, typeof(LinePositionSpan), JsonHelpers.JsonSerializerOptions).AssumeNotNull();
             span = sourceText.GetTextSpan(linePositionSpan);

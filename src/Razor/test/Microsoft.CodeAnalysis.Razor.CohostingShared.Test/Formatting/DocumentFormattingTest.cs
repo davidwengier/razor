@@ -19,6 +19,49 @@ namespace Microsoft.AspNetCore.Razor.LanguageServer.Formatting;
 public class DocumentFormattingTest(ITestOutputHelper testOutput) : DocumentFormattingTestBase(testOutput)
 {
     [Fact]
+    public async Task NoNewlineAfterCloseBrace()
+    {
+        await RunFormattingTestAsync(
+            input: """
+                @page
+                @model Test.Pages.TestFormatModel
+                @{
+                }
+                <table>
+                    <tr>
+                        <td>@Environment.TickCount</td>
+                    </tr>
+                </table>
+                """,
+            htmlFormatted: """
+                @page
+                @model Test.Pages.TestFormatModel
+                @{
+                }
+                <table>
+                    <tr>
+                        <td>@Environment.TickCount</td>
+                    </tr>
+                </table>
+                """,
+            expected: """
+                @page
+                @model Test.Pages.TestFormatModel
+                @{
+                }
+                <table>
+                    <tr>
+                        <td>@Environment.TickCount</td>
+                    </tr>
+                </table>
+                """,
+            csharpSyntaxFormattingOptions: RazorCSharpSyntaxFormattingOptions.Default with
+            {
+                NewLines = RazorCSharpSyntaxFormattingOptions.Default.NewLines & ~RazorNewLinePlacement.BeforeOpenBraceInAnonymousTypes
+            });
+    }
+
+    [Fact]
     [WorkItem("https://github.com/dotnet/razor/issues/9658#issuecomment-3943605712")]
     public async Task MultilineIfStatement()
     {
