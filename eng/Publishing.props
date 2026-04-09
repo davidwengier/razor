@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project>
   <PropertyGroup>
     <PublishDependsOnTargets>$(PublishDependsOnTargets);_UpdatePublishItems</PublishDependsOnTargets>
@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <Target Name="_UpdatePublishItems">
-    <!-- This target is defined in eng/targets/Packaging.targets and included in every project. -->
+    <!-- This target is defined in $(RepositoryEngineeringDir)targets/Packaging.targets and included in every project. -->
 
     <PropertyGroup>
       <_PackageVersion>@(_ResolvedPackageVersionInfo->'%(PackageVersion)')</_PackageVersion>

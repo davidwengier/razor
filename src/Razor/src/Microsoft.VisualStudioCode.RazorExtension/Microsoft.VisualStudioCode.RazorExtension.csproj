@@ -1,6 +1,6 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- needs to be compatible with NetVSCode as defined in Roslyn repo, eng/targets/TargetFrameworks.props -->
+    <!-- needs to be compatible with NetVSCode as defined in Roslyn repo, $(RepositoryEngineeringDir)targets/TargetFrameworks.props -->
     <TargetFramework>$(NetVSCode)</TargetFramework>
     <Nullable>enable</Nullable>
     <IsShippingPackage>true</IsShippingPackage>
